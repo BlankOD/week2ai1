@@ -134,8 +134,31 @@ def hill_climbing(board):
     :param board:
     :return:
     """
-    pass
+    i = 0
+    optimum = (len(board) - 1) * len(board) / 2
+    current_best = board
+    while evaluate_state(current_best) != optimum:
+        i += 1
+        print('iteration ' + str(i) + ': evaluation = ' + str(evaluate_state(current_best)))
 
+        current = board
+        current_down = board
+        current_up = board
+        j = 0
+        while j < len(board):  # For each column, place the queen in a random row
+            current = current_best
+            current_down[j] = current[j] - 1
+            current_up[j] = current[j] + 1
+            if evaluate_state(current_down) > evaluate_state(current_best):
+                current_best = current_down
+            if evaluate_state(current_up) > evaluate_state(current_best):
+                current_best = current_up
+            j += 1
+    if evaluate_state(current_best) == optimum:
+        print('Solved puzzle!')
+
+    print('Final state is:')
+    print_board(current_best)
 
 def simulated_annealing(board):
     """
