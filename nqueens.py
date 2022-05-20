@@ -47,7 +47,7 @@ def count_conflicts(board):
     cnt = 0
 
     for queen in range(0, len(board)):
-        for other_queen in range(queen+1, len(board)):
+        for other_queen in range(queen + 1, len(board)):
             if in_conflict(queen, board[queen], other_queen, board[other_queen]):
                 cnt += 1
 
@@ -63,7 +63,7 @@ def evaluate_state(board):
     :param board: list/array representation of columns and the row of the queen on that column
     :return: evaluation score
     """
-    return (len(board)-1)*len(board)/2 - count_conflicts(board)
+    return (len(board) - 1) * len(board) / 2 - count_conflicts(board)
 
 
 def print_board(board):
@@ -92,7 +92,7 @@ def init_board(nqueens):
     board = []
 
     for column in range(nqueens):
-        board.append(random.randint(0, nqueens-1))
+        board.append(random.randint(0, nqueens - 1))
 
     return board
 
@@ -119,7 +119,7 @@ def random_search(board):
             break
 
         for column, row in enumerate(board):  # For each column, place the queen in a random row
-            board[column] = random.randint(0, len(board)-1)
+            board[column] = random.randint(0, len(board) - 1)
 
     if evaluate_state(board) == optimum:
         print('Solved puzzle!')
@@ -140,25 +140,26 @@ def hill_climbing(board):
     while evaluate_state(current_best) != optimum:
         i += 1
         print('iteration ' + str(i) + ': evaluation = ' + str(evaluate_state(current_best)))
-
-        current = board
-        current_down = board
-        current_up = board
-        j = 0
-        while j < len(board):  # For each column, place the queen in a random row
-            current = current_best
-            current_down[j] = current[j] - 1
-            current_up[j] = current[j] + 1
-            if evaluate_state(current_down) > evaluate_state(current_best):
-                current_best = current_down
-            if evaluate_state(current_up) > evaluate_state(current_best):
-                current_best = current_up
-            j += 1
+        if i == 1000:  # Give up after 1000 tries.
+            break
+        new = board.copy()
+        column = 0
+        while column < len(board):  # For each column
+            current = current_best.copy()
+            new = current_best.copy()
+            for row in range(0, len(board) - 1):
+                new[column] = row
+                if evaluate_state(new) > evaluate_state(current_best):
+                    current_best = new.copy()
+                if evaluate_state(new) is evaluate_state(current_best):
+                    current_best = random.choice([current_best, new])
+            column += 1
     if evaluate_state(current_best) == optimum:
         print('Solved puzzle!')
 
     print('Final state is:')
     print_board(current_best)
+
 
 def simulated_annealing(board):
     """
