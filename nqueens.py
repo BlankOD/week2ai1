@@ -1,5 +1,6 @@
 import sys
 import random
+from math import e
 
 MAXQ = 100
 
@@ -136,29 +137,37 @@ def hill_climbing(board):
     """
     i = 0
     optimum = (len(board) - 1) * len(board) / 2
-    current_best = board
-    while evaluate_state(current_best) != optimum:
+    best_neighbour = board.copy()
+    neighbour = best_neighbour.copy()
+    while evaluate_state(best_neighbour) != optimum:
         i += 1
-        print('iteration ' + str(i) + ': evaluation = ' + str(evaluate_state(current_best)))
-        if i == 1000:  # Give up after 1000 tries.
+        print('iteration ' + str(i) + ': evaluation = ' + str(evaluate_state(best_neighbour)))
+        if i > 1000:  # Give up after 1000 tries.
             break
-        new = board.copy()
-        column = 0
-        while column < len(board):  # For each column
-            current = current_best.copy()
-            new = current_best.copy()
-            for row in range(0, len(board) - 1):
-                new[column] = row
-                if evaluate_state(new) > evaluate_state(current_best):
-                    current_best = new.copy()
-                if evaluate_state(new) is evaluate_state(current_best):
-                    current_best = random.choice([current_best, new])
-            column += 1
-    if evaluate_state(current_best) == optimum:
+        neighbour = board.copy()
+        for column, row in enumerate(neighbour):  # For each column
+            for qrow in range(0, len(board)):
+                if row == qrow:
+                    continue
+                neighbour[column] = row
+                if evaluate_state(neighbour) > evaluate_state(best_neighbour):
+                    best_neighbour = neighbour.copy()
+                if evaluate_state(neighbour) is evaluate_state(best_neighbour):
+                    best_neighbour = random.choice([best_neighbour, neighbour])
+                neighbour = board.copy()
+            board = best_neighbour.copy()
+            neighbour = best_neighbour.copy()
+
+
+    if evaluate_state(best_neighbour) == optimum:
         print('Solved puzzle!')
 
     print('Final state is:')
-    print_board(current_best)
+    print_board(best_neighbour)
+
+
+def time_to_temperature(time):
+    return 0.5*(e**(-time/7000))
 
 
 def simulated_annealing(board):
@@ -167,7 +176,127 @@ def simulated_annealing(board):
     :param board:
     :return:
     """
-    pass
+    t = 0
+    optimum = (len(board) - 1) * len(board) / 2
+    current = board.copy()
+    while evaluate_state(board) != optimum:
+        t += 1
+        T = time_to_temperature(t)
+        print('iteration ' + str(t) + ': evaluation = ' + str(evaluate_state(board)))
+        random_column = random.randint(0, len(board)-1)
+        board[random_column] = random.choice(list(range(0, board[random_column])) + list(range(board[random_column], len(board))))
+        E = evaluate_state(board) - evaluate_state(current)
+        if E > 0:
+            current = board.copy()
+        else:
+            current = random.choices(population=[current, board], weights=[1 - e**(E/T), e**(E/T)]).copy()
+
+    if evaluate_state(board) == optimum:
+        print('Solved puzzle!')
+
+    print('Final state is:')
+    print_board(board)
+
+
+def reproduce(parent1, parent2):
+    """
+    :param parent1: a board configuration
+    :param parent2: a board configuration
+    :return: a board configuration that concatenates a part of parent1 and 2
+    """
+    column = random.randint(0, len(parent2) - 1)
+    child = parent1[0: column] + parent2[column: len(parent2)]
+    return child
+
+
+def mutate(child):
+    """
+    :param child: a board configurations
+    :return: the child with one randomized value on a randomized index
+    """
+    mutated = child.copy()
+    mutation_probability = 0.01
+    column = random.randint(0, len(mutated) - 1)
+    range1 = list(range(0, mutated[column]))
+    range2 = list(range(mutated[column] + 1, len(mutated)))
+    range1 = range1 + range2
+    mutated[column] = random.choice(range1)
+    return random.choices([child, mutated], weights=[1-mutation_probability, mutation_probability])[0]
+
+
+def calculate_fitness(board):
+    """
+    :param board: an nqueens configuration
+    :return: fitness of this configuration expressed in the number of non attack pairs
+    """
+    max_no_attacking_pairs = (len(board) * (len(board) - 1)) / 2
+    no_attacking_pairs = max_no_attacking_pairs - count_conflicts(board)
+    return no_attacking_pairs
+
+
+def calculate_weights(population):
+    """
+    :param population: a list of board configurations
+    :return: a list of weights based on fitness
+    """
+    best = []
+    weights = []
+    best_fitness = 0
+    for individual in population:
+        fitness = calculate_fitness(individual)
+        if fitness > best_fitness:
+            best = individual
+        weights.append(fitness)
+    return weights, best.copy()
+
+
+def make_population(board, size):
+    """
+    :param board: initial nqueens configuration
+    :param size: population size
+    :return: a list of size random nqueens configurations
+    """
+    population = [board]
+    for individual in range(0, size):
+        for column, row in enumerate(board):  # For each column, place the queen in a random row
+            board[column] = random.randint(0, len(board) - 1)
+        population.append(board.copy())
+
+    return population
+
+
+def genetic_algorithm(board):
+    """
+    Implement this yourself.
+    :param board: initial nqueens configuration
+    """
+    population_size = 20
+
+    optimum = (len(board) - 1) * len(board) / 2
+    generation = 0
+
+    population = make_population(board, population_size)
+    weights, best_individual = calculate_weights(population)
+
+    while evaluate_state(best_individual) != optimum:
+
+        generation += 1
+        population2 = []
+        print(f"gen: {generation} fitness: {evaluate_state(best_individual)}")
+
+        for i in range(1, population_size):
+            parent1, parent2 = random.choices(population, weights, k=2)
+            child = reproduce(parent1, parent2)
+            population2.append(mutate(child))
+
+        population = population2
+        weights, best_individual = calculate_weights(population)
+
+    if evaluate_state(best_individual) == optimum:
+        print('Solved puzzle!')
+
+    print('Final state is:')
+    print_board(best_individual)
 
 
 def main():
@@ -189,12 +318,12 @@ def main():
         return False
 
     print('Which algorithm to use?')
-    algorithm = input('1: random, 2: hill-climbing, 3: simulated annealing \n')
+    algorithm = input('1: random, 2: hill-climbing, 3: simulated annealing, 4: genetic algorithm\n')
 
     try:
         algorithm = int(algorithm)
 
-        if algorithm not in range(1, 4):
+        if algorithm not in range(1, 5):
             raise ValueError
 
     except ValueError:
@@ -211,8 +340,11 @@ def main():
         hill_climbing(board)
     if algorithm == 3:
         simulated_annealing(board)
+    if algorithm == 4:
+        genetic_algorithm(board)
 
 
 # This line is the starting point of the program.
 if __name__ == "__main__":
     main()
+
