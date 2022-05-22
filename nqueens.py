@@ -149,14 +149,14 @@ def hill_climbing(board):
             for qrow in range(0, len(board)):
                 if row == qrow:
                     continue
-                neighbour[column] = row
+                neighbour[column] = qrow
                 if evaluate_state(neighbour) > evaluate_state(best_neighbour):
                     best_neighbour = neighbour.copy()
-                if evaluate_state(neighbour) is evaluate_state(best_neighbour):
+                if evaluate_state(neighbour) == evaluate_state(best_neighbour):
                     best_neighbour = random.choice([best_neighbour, neighbour])
                 neighbour = board.copy()
-            board = best_neighbour.copy()
-            neighbour = best_neighbour.copy()
+        board = best_neighbour.copy()
+        neighbour = best_neighbour.copy()
 
 
     if evaluate_state(best_neighbour) == optimum:
@@ -298,6 +298,43 @@ def genetic_algorithm(board):
     print('Final state is:')
     print_board(best_individual)
 
+def stochastic(board):
+    """
+    Implement this yourself.
+    :param board:
+    :return:
+    """
+    i = 0
+    optimum = (len(board) - 1) * len(board) / 2
+    neighbour = board.copy()
+    selected_neighbour = board.copy()
+    while evaluate_state(selected_neighbour) != optimum:
+        better_neighbour = []
+        neighbour_weights = []
+        i += 1
+        print('iteration ' + str(i) + ': evaluation = ' + str(evaluate_state(selected_neighbour)))
+        if i > 1000:  # Give up after 1000 tries.
+            break
+        neighbour = board.copy()
+        for column, row in enumerate(neighbour):  # For each column
+            for qrow in range(0, len(board)):
+                if row == qrow:
+                    continue
+                neighbour[column] = qrow
+                if evaluate_state(neighbour) >= evaluate_state(selected_neighbour):
+                    better_neighbour.append(neighbour.copy())
+                    neighbour_weights.append(evaluate_state(neighbour) - evaluate_state(selected_neighbour) + 1)
+                neighbour = board.copy()
+        if len(better_neighbour) > 0:
+            selected_neighbour = random.choices(better_neighbour, weights=neighbour_weights)[0]
+        board = selected_neighbour.copy()
+
+
+    if evaluate_state(selected_neighbour) == optimum:
+        print('Solved puzzle!')
+
+    print('Final state is:')
+    print_board(board)
 
 def main():
     """
@@ -318,12 +355,12 @@ def main():
         return False
 
     print('Which algorithm to use?')
-    algorithm = input('1: random, 2: hill-climbing, 3: simulated annealing, 4: genetic algorithm\n')
+    algorithm = input('1: random, 2: hill-climbing, 3: simulated annealing, 4: genetic algorithm, 5: stochastic\n')
 
     try:
         algorithm = int(algorithm)
 
-        if algorithm not in range(1, 5):
+        if algorithm not in range(1, 6):
             raise ValueError
 
     except ValueError:
@@ -342,6 +379,8 @@ def main():
         simulated_annealing(board)
     if algorithm == 4:
         genetic_algorithm(board)
+    if algorithm == 5:
+        stochastic(board)
 
 
 # This line is the starting point of the program.
