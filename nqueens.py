@@ -139,20 +139,20 @@ def hill_climbing(board):
     optimum = (len(board) - 1) * len(board) / 2
     best_neighbour = board.copy()
     neighbour = best_neighbour.copy()
+    neighbour = board.copy()
     while evaluate_state(best_neighbour) != optimum:
         i += 1
         print('iteration ' + str(i) + ': evaluation = ' + str(evaluate_state(best_neighbour)))
         if i > 1000:  # Give up after 1000 tries.
             break
-        neighbour = board.copy()
         for column, row in enumerate(neighbour):  # For each column
             for qrow in range(0, len(board)):
                 if row == qrow:
                     continue
-                neighbour[column] = row
+                neighbour[column] = qrow
                 if evaluate_state(neighbour) > evaluate_state(best_neighbour):
                     best_neighbour = neighbour.copy()
-                if evaluate_state(neighbour) is evaluate_state(best_neighbour):
+                if evaluate_state(neighbour) == evaluate_state(best_neighbour):
                     best_neighbour = random.choice([best_neighbour, neighbour])
                 neighbour = board.copy()
             board = best_neighbour.copy()
