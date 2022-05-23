@@ -1,6 +1,9 @@
 import sys
 import random
 from math import e
+from math import log10
+import time
+import  heapq
 
 MAXQ = 100
 
@@ -158,7 +161,6 @@ def hill_climbing(board):
         board = best_neighbour.copy()
         neighbour = best_neighbour.copy()
 
-
     if evaluate_state(best_neighbour) == optimum:
         print('Solved puzzle!')
 
@@ -167,7 +169,7 @@ def hill_climbing(board):
 
 
 def time_to_temperature(time):
-    return 0.5*(e**(-time/7000))
+    return 100/(1+100*log10(1+time))
 
 
 def simulated_annealing(board):
@@ -179,23 +181,29 @@ def simulated_annealing(board):
     t = 0
     optimum = (len(board) - 1) * len(board) / 2
     current = board.copy()
-    while evaluate_state(board) != optimum:
+    neighbour = board.copy()
+    while evaluate_state(current) != optimum:
         t += 1
         T = time_to_temperature(t)
-        print('iteration ' + str(t) + ': evaluation = ' + str(evaluate_state(board)))
+        print('iteration ' + str(t) + ': evaluation = ' + str(evaluate_state(current)))
         random_column = random.randint(0, len(board)-1)
-        board[random_column] = random.choice(list(range(0, board[random_column])) + list(range(board[random_column], len(board))))
-        E = evaluate_state(board) - evaluate_state(current)
+        neighbour[random_column] = random.choice(list(range(0, neighbour[random_column])) + list(range(neighbour[random_column], len(board))))
+        E = evaluate_state(neighbour) - evaluate_state(current)
         if E > 0:
-            current = board.copy()
+            current = neighbour.copy()
         else:
-            current = random.choices(population=[current, board], weights=[1 - e**(E/T), e**(E/T)]).copy()
+            probability = e**(E/T)
+            current = random.choices(population=[current, neighbour], weights=[1 - probability, probability])[0].copy()
+            neighbour = current.copy()
 
-    if evaluate_state(board) == optimum:
+    if evaluate_state(current) == optimum:
         print('Solved puzzle!')
 
     print('Final state is:')
-    print_board(board)
+    print('final evaluation = ' + str(evaluate_state(current)))
+    print(f'optimum = {optimum}')
+    print_board(current)
+    print(current)
 
 
 def reproduce(parent1, parent2):
@@ -204,8 +212,10 @@ def reproduce(parent1, parent2):
     :param parent2: a board configuration
     :return: a board configuration that concatenates a part of parent1 and 2
     """
-    column = random.randint(0, len(parent2) - 1)
-    child = parent1[0: column] + parent2[column: len(parent2)]
+    column2 = random.randint(0, len(parent2) - 1)
+    column1 = random.randint(0, len(parent2) - 1)
+
+    child = parent1[0:min(column1, column2)] + parent2[min(column1, column2): max(column1, column2)] + parent1[max(column1, column2):len(parent2)]
     return child
 
 
@@ -215,7 +225,7 @@ def mutate(child):
     :return: the child with one randomized value on a randomized index
     """
     mutated = child.copy()
-    mutation_probability = 0.01
+    mutation_probability = 0.8
     column = random.randint(0, len(mutated) - 1)
     range1 = list(range(0, mutated[column]))
     range2 = list(range(mutated[column] + 1, len(mutated)))
@@ -237,17 +247,17 @@ def calculate_fitness(board):
 def calculate_weights(population):
     """
     :param population: a list of board configurations
-    :return: a list of weights based on fitness
+    :return: a list of weights based on fitness and the population in a max heap
     """
     best = []
+    heapq.heapify(best)
     weights = []
     best_fitness = 0
     for individual in population:
         fitness = calculate_fitness(individual)
-        if fitness > best_fitness:
-            best = individual
+        heapq.heappush(best, (-fitness, individual.copy()))
         weights.append(fitness)
-    return weights, best.copy()
+    return weights, best
 
 
 def make_population(board, size):
@@ -270,32 +280,45 @@ def genetic_algorithm(board):
     Implement this yourself.
     :param board: initial nqueens configuration
     """
-    population_size = 20
+    population_size = 75
+    amount_of_elites = 6
 
     optimum = (len(board) - 1) * len(board) / 2
     generation = 0
 
     population = make_population(board, population_size)
-    weights, best_individual = calculate_weights(population)
-
-    while evaluate_state(best_individual) != optimum:
+    weights, elites = calculate_weights(population)
+    # for item in population:
+    #     print(f"{item} = {calculate_fitness(item)}")
+    fitness, best_individual = heapq.heappop(elites)
+    fitness = -fitness
+    # print(f" best: {best_individual} = {fitness}")
+    while evaluate_state(best_individual) != optimum and generation < 100000:
 
         generation += 1
         population2 = []
         print(f"gen: {generation} fitness: {evaluate_state(best_individual)}")
 
-        for i in range(1, population_size):
+        for i in range(1, population_size-amount_of_elites):
             parent1, parent2 = random.choices(population, weights, k=2)
             child = reproduce(parent1, parent2)
             population2.append(mutate(child))
 
+        for elite in range(0, amount_of_elites):
+            population2.append(best_individual)
+            fitness, best_individual = heapq.heappop(elites)
+            fitness = -fitness
+
         population = population2
-        weights, best_individual = calculate_weights(population)
+        weights, elites = calculate_weights(population)
+        _, best_individual = heapq.heappop(elites)
 
     if evaluate_state(best_individual) == optimum:
         print('Solved puzzle!')
 
     print('Final state is:')
+    print('final evaluation = ' + str(evaluate_state(best_individual)))
+    print(f'optimum = {optimum}')
     print_board(best_individual)
 
 def stochastic(board):
@@ -325,8 +348,7 @@ def stochastic(board):
                     better_neighbour.append(neighbour.copy())
                     neighbour_weights.append(evaluate_state(neighbour) - evaluate_state(selected_neighbour) + 1)
                 neighbour = board.copy()
-        if len(better_neighbour) > 0:
-            selected_neighbour = random.choices(better_neighbour, weights=neighbour_weights)[0]
+        selected_neighbour = random.choices(better_neighbour, weights=neighbour_weights)[0]
         board = selected_neighbour.copy()
 
 
@@ -356,7 +378,6 @@ def main():
 
     print('Which algorithm to use?')
     algorithm = input('1: random, 2: hill-climbing, 3: simulated annealing, 4: genetic algorithm, 5: stochastic\n')
-
     try:
         algorithm = int(algorithm)
 
@@ -370,7 +391,7 @@ def main():
     board = init_board(n_queens)
     print('Initial board: \n')
     print_board(board)
-
+    start = time.time()
     if algorithm == 1:
         random_search(board)
     if algorithm == 2:
@@ -381,6 +402,7 @@ def main():
         genetic_algorithm(board)
     if algorithm == 5:
         stochastic(board)
+    print(time.time() - start)
 
 
 # This line is the starting point of the program.
